@@ -1,6 +1,4 @@
 name: Build Unsigned IPA
-# Repo: https://github.com/Ihaveadream21/Feather
-# Workspace: Feather.xcworkspace
 
 on:
   workflow_dispatch:
@@ -10,8 +8,16 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout (with submodules)
         uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Update Swift Packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -workspace "Feather.xcworkspace"
 
       - name: Build archive
         run: |
