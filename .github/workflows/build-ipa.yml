@@ -20,29 +20,34 @@ jobs:
           submodules: 'recursive'
           fetch-depth: 0
 
+
+      - name: Build LicensePlist CLI and generate acknowledgements
+        run: |
+          set -e
+          # Clone LicensePlist and build the CLI
+          git clone https://github.com/mono0926/LicensePlist /tmp/license-plist
+          pushd /tmp/license-plist
+          swift build -c release
+
+          # Prepare output directory that the Xcode project expects inside derived products
+          RELEASE_PRODUCTS="$BUILD_DIR/derived/Build/Products/Release-iphoneos"
+          OUT_DIR="$RELEASE_PRODUCTS/com.mono0926.LicensePlist.Output"
+          mkdir -p "$OUT_DIR"
+
+          # Run the built license-plist CLI to generate acknowledgements
+          if [ -x ".build/release/license-plist" ]; then
+            .build/release/license-plist -i "$GITHUB_WORKSPACE/license_plist.yml" -o "$OUT_DIR"
+          elif [ -x ".build/release/license-plist-cli" ]; then
+            .build/release/license-plist-cli -i "$GITHUB_WORKSPACE/license_plist.yml" -o "$OUT_DIR"
+          else
+            echo "Built license-plist binary not found; falling back to placeholder output"
+            mkdir -p "$OUT_DIR/thewonderofyou.Feather"
+            echo "Placeholder acknowledgement" > "$OUT_DIR/thewonderofyou.Feather/README.md"
+          fi
+          popd
+
       - name: Resolve Swift packages
         run: xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -resolvePackageDependencies
-
-      - name: Create placeholder LicensePlist output (prevent plugin validation failure)
-        run: |
-          # Ensure the derived data Build/Products path exists before xcodebuild runs
-          RELEASE_PRODUCTS="$BUILD_DIR/derived/Build/Products/Release-iphoneos"
-          mkdir -p "$RELEASE_PRODUCTS/com.mono0926.LicensePlist.Output/thewonderofyou.Feather"
-
-          # Create a minimal plist and a placeholder folder so the project's copy script succeeds
-          cat > "$RELEASE_PRODUCTS/com.mono0926.LicensePlist.Output/thewonderofyou.Feather.plist" <<PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>Title</key>
-            <string>Third-party Licenses</string>
-          </dict>
-          </plist>
-          PLIST
-
-          # Add a placeholder file inside the directory
-          echo "Placeholder acknowledgement" > "$RELEASE_PRODUCTS/com.mono0926.LicensePlist.Output/thewonderofyou.Feather/README.md"
 
       - name: Build unsigned .app
         run: |
