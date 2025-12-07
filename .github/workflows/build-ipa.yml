@@ -14,8 +14,11 @@ jobs:
   build-unsigned-ipa:
     runs-on: macos-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (with submodules)
         uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
 
       - name: Resolve Swift packages
         run: xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -resolvePackageDependencies
