@@ -23,6 +23,27 @@ jobs:
       - name: Resolve Swift packages
         run: xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -resolvePackageDependencies
 
+      - name: Create placeholder LicensePlist output (prevent plugin validation failure)
+        run: |
+          # Ensure the derived data Build/Products path exists before xcodebuild runs
+          RELEASE_PRODUCTS="$BUILD_DIR/derived/Build/Products/Release-iphoneos"
+          mkdir -p "$RELEASE_PRODUCTS/com.mono0926.LicensePlist.Output/thewonderofyou.Feather"
+
+          # Create a minimal plist and a placeholder folder so the project's copy script succeeds
+          cat > "$RELEASE_PRODUCTS/com.mono0926.LicensePlist.Output/thewonderofyou.Feather.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>Title</key>
+            <string>Third-party Licenses</string>
+          </dict>
+          </plist>
+          PLIST
+
+          # Add a placeholder file inside the directory
+          echo "Placeholder acknowledgement" > "$RELEASE_PRODUCTS/com.mono0926.LicensePlist.Output/thewonderofyou.Feather/README.md"
+
       - name: Build unsigned .app
         run: |
           mkdir -p "$BUILD_DIR"
