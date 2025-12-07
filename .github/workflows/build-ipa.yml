@@ -19,32 +19,58 @@ jobs:
         with:
           submodules: 'recursive'
           fetch-depth: 0
+          persist-credentials: true
 
 
       - name: Build LicensePlist CLI and generate acknowledgements
         run: |
-          set -e
+          set -euo pipefail
+          echo "== swift version =="
+          swift --version || true
+
           # Clone LicensePlist and build the CLI
-          git clone https://github.com/mono0926/LicensePlist /tmp/license-plist
-          pushd /tmp/license-plist
+          TMP_DIR="/tmp/license-plist"
+          rm -rf "$TMP_DIR"
+          git clone --depth 1 https://github.com/mono0926/LicensePlist "$TMP_DIR"
+          pushd "$TMP_DIR"
+          echo "Building LicensePlist..."
           swift build -c release
+
+          # Show build output for debugging
+          echo "== build artifacts =="
+          ls -la .build/release || true
 
           # Prepare output directory that the Xcode project expects inside derived products
           RELEASE_PRODUCTS="$BUILD_DIR/derived/Build/Products/Release-iphoneos"
           OUT_DIR="$RELEASE_PRODUCTS/com.mono0926.LicensePlist.Output"
           mkdir -p "$OUT_DIR"
 
-          # Run the built license-plist CLI to generate acknowledgements
-          if [ -x ".build/release/license-plist" ]; then
-            .build/release/license-plist -i "$GITHUB_WORKSPACE/license_plist.yml" -o "$OUT_DIR"
-          elif [ -x ".build/release/license-plist-cli" ]; then
-            .build/release/license-plist-cli -i "$GITHUB_WORKSPACE/license_plist.yml" -o "$OUT_DIR"
+          # Try known binary names, make executable and run
+          if [ -f ".build/release/license-plist" ]; then
+            BIN=".build/release/license-plist"
+          elif [ -f ".build/release/license-plist-cli" ]; then
+            BIN=".build/release/license-plist-cli"
+          else
+            BIN=""
+          fi
+
+          if [ -n "$BIN" ]; then
+            chmod +x "$BIN"
+            echo "Running $BIN to generate acknowledgements..."
+            "$BIN" -i "$GITHUB_WORKSPACE/license_plist.yml" -o "$OUT_DIR" || (
+              echo "license-plist failed; printing logs and falling back to placeholder"; ls -la "$TMP_DIR/.build/release" || true; false)
           else
             echo "Built license-plist binary not found; falling back to placeholder output"
             mkdir -p "$OUT_DIR/thewonderofyou.Feather"
             echo "Placeholder acknowledgement" > "$OUT_DIR/thewonderofyou.Feather/README.md"
           fi
+
           popd
+
+      - name: Debug: show generated LicensePlist output
+        run: |
+          RELEASE_PRODUCTS="$BUILD_DIR/derived/Build/Products/Release-iphoneos"
+          echo "Listing $RELEASE_PRODUCTS"; ls -la "$RELEASE_PRODUCTS" || true
 
       - name: Resolve Swift packages
         run: xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -resolvePackageDependencies
